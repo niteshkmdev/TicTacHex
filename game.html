@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hex Tic Tac Toe - Game</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0b0f14;
+            color: #fff;
+            font-family: sans-serif;
+            overflow: hidden
+        }
+
+        canvas {
+            display: block;
+            touch-action: none
+        }
+
+        #ui {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: #111;
+            padding: 8px 10px;
+            border-radius: 6px;
+            z-index: 10;
+        }
+
+        #restart {
+            background: #1f2937;
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        #mobileHelp {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            opacity: .8;
+            z-index: 10;
+            white-space: nowrap;
+        }
+
+        #status {
+            margin-top: 8px;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        #status input {
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 4px;
+            width: 250px;
+            border-radius: 4px;
+            margin-top: 4px;
+        }
+
+        .btn-back {
+            background: #ff4d4d;
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+    </style>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+
+<body>
+
+    <div id="ui">Turn: <span id="turn">X</span>
+        <div id="status"></div>
+    </div>
+    <div id="restart-container" style="position:fixed;top:10px;right:10px; z-index: 10;">
+        <button id="backMenu" class="btn-back" onclick="location.href='index.html'">Quit</button>
+        <button id="restart">New Game</button>
+    </div>
+    <div id="mobileHelp">Tap: place • Drag: move • Pinch: zoom</div>
+
+    <canvas id="c"></canvas>
+
+    <script>
+        const canvas = document.getElementById("c")
+        const ctx = canvas.getContext("2d")
+
+        /* GAME STATE */
+        let board = new Map()
+        let turn = "X"
+        let gameOver = false
+        let winLine = null
+
+        /* VIEW STATE */
+        let size = 32
+        let offsetX = 0
+        let offsetY = 0
+
+        /* INPUT STATE */
+        let moved = false
+        let lastTouch = null
+        let pinchDist = null
+
+        /* MULTIPLAYER STATE */
+        const urlParams = new URLSearchParams(window.location.search);
+        const mode = urlParams.get('mode') || 'local';
+        const room = urlParams.get('room');
+
+        let isMultiplayer = mode === 'host' || mode === 'join';
+        let myPlayer = null; // 'X' for host, 'O' for join
+        let peer = null;
+        let conn = null;
+
+        const statusDiv = document.getElementById('status');
+
+        if (mode === 'host') {
+            myPlayer = 'X';
+            document.getElementById('restart').style.display = 'none';
+            peer = new Peer();
+            peer.on('open', (id) => {
+                let basePath = window.location.origin + window.location.pathname.replace('game.html', 'index.html');
+                // Handle case where we are not running on a server but local file System
+                if (window.location.protocol === 'file:') basePath = window.location.href.replace('game.html', 'index.html');
+
+                const joinUrl = basePath.split('?')[0] + '?mode=join&room=' + id;
+                statusDiv.innerHTML = `Share link: <input type="text" value="${joinUrl}" readonly onclick="this.select()"> <br> Waiting for friend...`;
+            });
+            peer.on('connection', (c) => {
+                if (conn) return;
+                conn = c;
+                setupConnection();
+                statusDiv.innerHTML = `Friend connected! You are 'X'.`;
+            });
+        } else if (mode === 'join' && room) {
+            myPlayer = 'O';
+            document.getElementById('restart').style.display = 'none';
+            peer = new Peer();
+            peer.on('open', () => {
+                statusDiv.innerHTML = `Connecting to host...`;
+                conn = peer.connect(room);
+                setupConnection();
+            });
+        } else {
+            statusDiv.innerHTML = `Pass N Play`;
+        }
+
+        function setupConnection() {
+            conn.on('open', () => {
+                if (mode === 'join') statusDiv.innerHTML = `Connected! You are 'O'.`;
+            });
+            conn.on('data', (data) => {
+                if (data.type === 'move') {
+                    applyMoveEx(data.q, data.r, data.player);
+                }
+            });
+            conn.on('close', () => {
+                if (!gameOver) window.location.href = `result.html?winner=${myPlayer}&reason=disconnect`;
+            });
+            peer.on('disconnected', () => {
+                if (!gameOver) window.location.href = `result.html?winner=${myPlayer}&reason=disconnect`;
+            });
+            peer.on('error', (err) => {
+                console.error(err);
+                if (!gameOver) window.location.href = `result.html?winner=${myPlayer}&reason=error`;
+            });
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth
+            canvas.height = window.innerHeight
+            offsetX = canvas.width / 2
+            offsetY = canvas.height / 2
+            draw()
+        }
+
+        window.addEventListener("resize", resize)
+        resize()
+
+        function key(q, r) { return q + "," + r }
+
+        function hexToPixel(q, r) {
+            const x = size * Math.sqrt(3) * (q + r / 2) + offsetX
+            const y = size * 1.5 * r + offsetY
+            return [x, y]
+        }
+
+        function pixelToHex(x, y) {
+            x -= offsetX
+            y -= offsetY
+            const q = (Math.sqrt(3) / 3 * x - 1 / 3 * y) / size
+            const r = (2 / 3 * y) / size
+            return hexRound(q, r)
+        }
+
+        function hexRound(q, r) {
+            let s = -q - r
+            let rq = Math.round(q)
+            let rr = Math.round(r)
+            let rs = Math.round(s)
+            const qd = Math.abs(rq - q)
+            const rd = Math.abs(rr - r)
+            const sd = Math.abs(rs - s)
+            if (qd > rd && qd > sd) rq = -rr - rs
+            else if (rd > sd) rr = -rq - rs
+            return [rq, rr]
+        }
+
+        function drawHex(x, y) {
+            ctx.beginPath()
+            for (let i = 0; i < 6; i++) {
+                const a = Math.PI / 180 * (60 * i + 30)
+                const px = x + size * Math.cos(a)
+                const py = y + size * Math.sin(a)
+                if (i === 0) ctx.moveTo(px, py)
+                else ctx.lineTo(px, py)
+            }
+            ctx.closePath()
+            ctx.strokeStyle = "#333"
+            ctx.stroke()
+        }
+
+        function drawPiece(x, y, v) {
+            ctx.fillStyle = v === 'X' ? '#ff4d4d' : '#4da6ff'
+            ctx.font = `${size}px sans-serif`
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText(v, x, y + 1)
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+            const range = 15
+            for (let q = -range; q < range; q++) {
+                for (let r = -range; r < range; r++) {
+                    const [x, y] = hexToPixel(q, r)
+                    drawHex(x, y)
+                    const v = board.get(key(q, r))
+                    if (v) drawPiece(x, y, v)
+                }
+            }
+            if (winLine) {
+                const s = hexToPixel(winLine[0][0], winLine[0][1])
+                const e = hexToPixel(winLine[1][0], winLine[1][1])
+                ctx.strokeStyle = "#22c55e"
+                ctx.lineWidth = 5
+                ctx.beginPath()
+                ctx.moveTo(s[0], s[1])
+                ctx.lineTo(e[0], e[1])
+                ctx.stroke()
+                ctx.lineWidth = 1
+            }
+        }
+
+        const dirs = [
+            [1, 0], [0, 1], [-1, 1],
+            [-1, 0], [0, -1], [1, -1]
+        ]
+
+        function checkWin(q, r) {
+            const p = board.get(key(q, r))
+            for (let i = 0; i < 3; i++) {
+                const d1 = dirs[i]
+                const d2 = dirs[i + 3]
+                const cells = [[q, r]]
+                for (let k = 1; k < 6; k++) {
+                    const nq = q + d1[0] * k
+                    const nr = r + d1[1] * k
+                    if (board.get(key(nq, nr)) === p) cells.push([nq, nr])
+                    else break
+                }
+                for (let k = 1; k < 6; k++) {
+                    const nq = q + d2[0] * k
+                    const nr = r + d2[1] * k
+                    if (board.get(key(nq, nr)) === p) cells.unshift([nq, nr])
+                    else break
+                }
+                if (cells.length >= 6) {
+                    winLine = [cells[0], cells[cells.length - 1]]
+                    return true
+                }
+            }
+            return false
+        }
+
+        function applyMoveEx(q, r, player) {
+            const k = key(q, r);
+            board.set(k, player);
+
+            if (checkWin(q, r)) {
+                gameOver = true;
+                draw();
+                setTimeout(() => {
+                    window.location.href = `result.html?winner=${player}&reason=win`;
+                }, 1500);
+            } else {
+                turn = turn === 'X' ? 'O' : 'X';
+                document.getElementById("turn").textContent = turn;
+                draw();
+            }
+        }
+
+        canvas.addEventListener("click", e => {
+            if (gameOver || moved) {
+                moved = false
+                return
+            }
+
+            if (isMultiplayer) {
+                if (turn !== myPlayer) return;
+                if (!conn || !conn.open) return;
+            }
+
+            const rect = canvas.getBoundingClientRect()
+            const x = e.clientX - rect.left
+            const y = e.clientY - rect.top
+            const [q, r] = pixelToHex(x, y)
+            const k = key(q, r)
+
+            if (board.has(k)) return
+
+            if (isMultiplayer && conn && conn.open) {
+                conn.send({ type: 'move', q: q, r: r, player: turn });
+            }
+
+            applyMoveEx(q, r, turn);
+        })
+
+        canvas.addEventListener("mousemove", e => {
+            if (!e.ctrlKey) return
+            moved = true
+            offsetX += e.movementX
+            offsetY += e.movementY
+            canvas.style.cursor = "grabbing"
+            draw()
+        })
+
+        window.addEventListener("keyup", () => canvas.style.cursor = "default")
+
+        canvas.addEventListener("wheel", e => {
+            size += e.deltaY * -0.01
+            size = Math.max(10, Math.min(80, size))
+            draw()
+        })
+
+        canvas.addEventListener("touchstart", e => {
+            if (e.touches.length === 1) lastTouch = e.touches[0]
+            if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX
+                const dy = e.touches[0].clientY - e.touches[1].clientY
+                pinchDist = Math.hypot(dx, dy)
+            }
+        })
+
+        canvas.addEventListener("touchmove", e => {
+            e.preventDefault()
+            if (e.touches.length === 1) {
+                const t = e.touches[0]
+                offsetX += t.clientX - lastTouch.clientX
+                offsetY += t.clientY - lastTouch.clientY
+                lastTouch = t
+                moved = true
+                draw()
+            }
+            if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX
+                const dy = e.touches[0].clientY - e.touches[1].clientY
+                const d = Math.hypot(dx, dy)
+                size += (d - pinchDist) * 0.02
+                size = Math.max(10, Math.min(80, size))
+                pinchDist = d
+                draw()
+            }
+        }, { passive: false })
+
+        canvas.addEventListener("touchend", e => {
+            if (moved) {
+                moved = false
+                return
+            }
+
+            if (isMultiplayer) {
+                if (turn !== myPlayer) return;
+                if (!conn || !conn.open) return;
+            }
+
+            const t = e.changedTouches[0]
+            const rect = canvas.getBoundingClientRect()
+            const x = t.clientX - rect.left
+            const y = t.clientY - rect.top
+            const [q, r] = pixelToHex(x, y)
+            const k = key(q, r)
+
+            if (board.has(k) || gameOver) return
+
+            if (isMultiplayer && conn && conn.open) {
+                conn.send({ type: 'move', q: q, r: r, player: turn });
+            }
+
+            applyMoveEx(q, r, turn);
+        })
+
+        function reset() {
+            if (isMultiplayer) return;
+
+            board.clear()
+            turn = "X"
+            gameOver = false
+            winLine = null
+            document.getElementById("turn").textContent = turn
+            resize()
+        }
+
+        document.getElementById("restart").onclick = reset
+
+        draw()
+    </script>
+
+</body>
+
+</html>

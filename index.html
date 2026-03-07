@@ -1,358 +1,76 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Hex Tic Tac Toe</title>
-<style>
-body{margin:0;background:#0b0f14;color:#fff;font-family:sans-serif;overflow:hidden}
-canvas{display:block;touch-action:none}
-#ui{position:fixed;top:10px;left:10px;background:#111;padding:8px 10px;border-radius:6px}
-#restart{position:fixed;top:10px;right:10px;background:#1f2937;color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer}
-#mobileHelp{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:#111;padding:6px 10px;border-radius:6px;font-size:12px;opacity:.8}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hex Tic Tac Toe - Menu</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0b0f14;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .menu-options {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    button {
+      background: #1f2937;
+      color: #fff;
+      border: 1px solid #374151;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 18px;
+      cursor: pointer;
+      transition: background 0.2s;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    button:hover:not(:disabled) {
+      background: #374151;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
 </head>
+
 <body>
+  <h1>Hex Tic Tac<br>Toe</h1>
+  <div class="menu-options">
+    <button onclick="location.href='game.html?mode=local'">Pass N Play</button>
+    <button onclick="location.href='game.html?mode=host'">Play with Friend</button>
+    <button disabled>Play Online (Matchmaking)</button>
+  </div>
 
-<div id="ui">Turn: <span id="turn">X</span></div>
-<button id="restart">New Game</button>
-<div id="mobileHelp">Tap: place • Drag: move • Pinch: zoom</div>
-
-<canvas id="c"></canvas>
-
-<script>
-
-const canvas = document.getElementById("c")
-const ctx = canvas.getContext("2d")
-
-/* GAME STATE — declared before any function uses it */
-let board = new Map()
-let turn = "X"
-let gameOver = false
-let winLine = null
-
-/* VIEW STATE */
-let size = 32
-let offsetX = 0
-let offsetY = 0
-
-/* INPUT STATE */
-let moved = false
-let lastTouch = null
-let pinchDist = null
-
-function resize(){
-  canvas.width = window.innerWidth
-  canvas.height = window.innerHeight
-
-  offsetX = canvas.width/2
-  offsetY = canvas.height/2
-
-  draw()
-}
-
-window.addEventListener("resize", resize)
-resize()
-
-function key(q,r){
-  return q+","+r
-}
-
-function hexToPixel(q,r){
-  const x = size*Math.sqrt(3)*(q+r/2)+offsetX
-  const y = size*1.5*r+offsetY
-  return [x,y]
-}
-
-function pixelToHex(x,y){
-  x-=offsetX
-  y-=offsetY
-
-  const q=(Math.sqrt(3)/3*x-1/3*y)/size
-  const r=(2/3*y)/size
-
-  return hexRound(q,r)
-}
-
-function hexRound(q,r){
-  let s=-q-r
-
-  let rq=Math.round(q)
-  let rr=Math.round(r)
-  let rs=Math.round(s)
-
-  const qd=Math.abs(rq-q)
-  const rd=Math.abs(rr-r)
-  const sd=Math.abs(rs-s)
-
-  if(qd>rd && qd>sd) rq=-rr-rs
-  else if(rd>sd) rr=-rq-rs
-
-  return [rq,rr]
-}
-
-function drawHex(x,y){
-  ctx.beginPath()
-
-  for(let i=0;i<6;i++){
-    const a=Math.PI/180*(60*i+30)
-    const px=x+size*Math.cos(a)
-    const py=y+size*Math.sin(a)
-
-    if(i===0) ctx.moveTo(px,py)
-    else ctx.lineTo(px,py)
-  }
-
-  ctx.closePath()
-  ctx.strokeStyle="#333"
-  ctx.stroke()
-}
-
-function drawPiece(x,y,v){
-  ctx.fillStyle = v==='X' ? '#ff4d4d' : '#4da6ff'
-
-  ctx.font = `${size}px sans-serif`
-  ctx.textAlign='center'
-  ctx.textBaseline='middle'
-
-  ctx.fillText(v,x,y+1)
-}
-
-function draw(){
-
-  ctx.clearRect(0,0,canvas.width,canvas.height)
-
-  const range = 15
-
-  for(let q=-range;q<range;q++){
-  for(let r=-range;r<range;r++){
-
-    const [x,y]=hexToPixel(q,r)
-
-    drawHex(x,y)
-
-    const v=board.get(key(q,r))
-
-    if(v) drawPiece(x,y,v)
-
-  }}
-
-  if(winLine){
-
-    const s=hexToPixel(winLine[0][0],winLine[0][1])
-    const e=hexToPixel(winLine[1][0],winLine[1][1])
-
-    ctx.strokeStyle="#22c55e"
-    ctx.lineWidth=5
-
-    ctx.beginPath()
-    ctx.moveTo(s[0],s[1])
-    ctx.lineTo(e[0],e[1])
-    ctx.stroke()
-
-    ctx.lineWidth=1
-  }
-}
-
-const dirs=[
-[1,0],[0,1],[-1,1],
-[-1,0],[0,-1],[1,-1]
-]
-
-function checkWin(q,r){
-
-  const p = board.get(key(q,r))
-
-  for(let i=0;i<3;i++){
-
-    const d1 = dirs[i]
-    const d2 = dirs[i+3]
-
-    const cells=[[q,r]]
-
-    for(let k=1;k<6;k++){
-      const nq=q+d1[0]*k
-      const nr=r+d1[1]*k
-
-      if(board.get(key(nq,nr))===p)
-        cells.push([nq,nr])
-      else
-        break
+  <script>
+    // Automatically redirect if a room ID is present in the URL
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'join' && params.get('room')) {
+      window.location.href = 'game.html' + window.location.search;
     }
-
-    for(let k=1;k<6;k++){
-      const nq=q+d2[0]*k
-      const nr=r+d2[1]*k
-
-      if(board.get(key(nq,nr))===p)
-        cells.unshift([nq,nr])
-      else
-        break
-    }
-
-    if(cells.length>=6){
-      winLine=[cells[0],cells[cells.length-1]]
-      return true
-    }
-  }
-
-  return false
-}
-
-canvas.addEventListener("click", e=>{
-
-  if(gameOver || moved){
-    moved=false
-    return
-  }
-
-  const rect=canvas.getBoundingClientRect()
-
-  const x=e.clientX-rect.left
-  const y=e.clientY-rect.top
-
-  const [q,r]=pixelToHex(x,y)
-
-  const k=key(q,r)
-
-  if(board.has(k)) return
-
-  board.set(k,turn)
-
-  if(checkWin(q,r)) gameOver=true
-
-  turn = turn==='X' ? 'O' : 'X'
-
-  document.getElementById("turn").textContent=turn
-
-  draw()
-})
-
-canvas.addEventListener("mousemove", e=>{
-
-  if(!e.ctrlKey) return
-
-  moved=true
-
-  offsetX += e.movementX
-  offsetY += e.movementY
-
-  canvas.style.cursor="grabbing"
-
-  draw()
-})
-
-window.addEventListener("keyup", ()=>canvas.style.cursor="default")
-
-canvas.addEventListener("wheel", e=>{
-
-  size += e.deltaY * -0.01
-
-  size = Math.max(10,Math.min(80,size))
-
-  draw()
-})
-
-canvas.addEventListener("touchstart", e=>{
-
-  if(e.touches.length===1)
-    lastTouch=e.touches[0]
-
-  if(e.touches.length===2){
-
-    const dx=e.touches[0].clientX-e.touches[1].clientX
-    const dy=e.touches[0].clientY-e.touches[1].clientY
-
-    pinchDist=Math.hypot(dx,dy)
-  }
-
-})
-
-canvas.addEventListener("touchmove", e=>{
-
-  e.preventDefault()
-
-  if(e.touches.length===1){
-
-    const t=e.touches[0]
-
-    offsetX += t.clientX-lastTouch.clientX
-    offsetY += t.clientY-lastTouch.clientY
-
-    lastTouch=t
-
-    moved=true
-
-    draw()
-  }
-
-  if(e.touches.length===2){
-
-    const dx=e.touches[0].clientX-e.touches[1].clientX
-    const dy=e.touches[0].clientY-e.touches[1].clientY
-
-    const d=Math.hypot(dx,dy)
-
-    size += (d-pinchDist)*0.02
-
-    size = Math.max(10,Math.min(80,size))
-
-    pinchDist=d
-
-    draw()
-  }
-
-})
-
-canvas.addEventListener("touchend", e=>{
-
-  if(moved){
-    moved=false
-    return
-  }
-
-  const t=e.changedTouches[0]
-
-  const rect=canvas.getBoundingClientRect()
-
-  const x=t.clientX-rect.left
-  const y=t.clientY-rect.top
-
-  const [q,r]=pixelToHex(x,y)
-
-  const k=key(q,r)
-
-  if(board.has(k) || gameOver) return
-
-  board.set(k,turn)
-
-  if(checkWin(q,r)) gameOver=true
-
-  turn = turn==='X' ? 'O' : 'X'
-
-  document.getElementById("turn").textContent=turn
-
-  draw()
-})
-
-function reset(){
-
-  board.clear()
-
-  turn="X"
-  gameOver=false
-  winLine=null
-
-  document.getElementById("turn").textContent=turn
-
-  resize()
-}
-
-document.getElementById("restart").onclick=reset
-
-draw()
-
-</script>
-
+  </script>
 </body>
+
 </html>

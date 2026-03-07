@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hex Tic Tac Toe - Result</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0b0f14;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            font-weight: normal;
+            color: #aaa;
+            margin-bottom: 30px;
+        }
+
+        button {
+            background: #1f2937;
+            color: #fff;
+            border: 1px solid #374151;
+            padding: 15px 30px;
+            margin: 10px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #374151;
+        }
+
+        .winner-X {
+            color: #ff4d4d;
+        }
+
+        .winner-O {
+            color: #4da6ff;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="result-content">
+        <h1 id="winner-title">Game Over</h1>
+        <h2 id="reason-desc"></h2>
+    </div>
+    <button onclick="location.href='index.html'">Back to Main Menu</button>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const winner = params.get('winner');
+        const reason = params.get('reason');
+
+        const titleEl = document.getElementById('winner-title');
+        const reasonEl = document.getElementById('reason-desc');
+
+        if (winner) {
+            titleEl.innerHTML = `Player <span class="winner-${winner}">${winner}</span> Wins!`;
+        }
+
+        if (reason === 'disconnect') {
+            reasonEl.textContent = "The other player disconnected. You win automatically!";
+        } else if (reason === 'error') {
+            reasonEl.textContent = "A connection error occurred.";
+        } else {
+            reasonEl.textContent = "Great moves!";
+        }
+    </script>
+</body>
+
+</html>
