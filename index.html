@@ -2,210 +2,357 @@
 <html>
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Hex Tic Tac Toe</title>
 <style>
 body{margin:0;background:#0b0f14;color:#fff;font-family:sans-serif;overflow:hidden}
-canvas{display:block}
+canvas{display:block;touch-action:none}
 #ui{position:fixed;top:10px;left:10px;background:#111;padding:8px 10px;border-radius:6px}
 #restart{position:fixed;top:10px;right:10px;background:#1f2937;color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer}
-#restart:hover{background:#374151}
+#mobileHelp{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:#111;padding:6px 10px;border-radius:6px;font-size:12px;opacity:.8}
 </style>
 </head>
 <body>
+
 <div id="ui">Turn: <span id="turn">X</span></div>
 <button id="restart">New Game</button>
+<div id="mobileHelp">Tap: place • Drag: move • Pinch: zoom</div>
+
 <canvas id="c"></canvas>
+
 <script>
-const canvas=document.getElementById('c');
-const ctx=canvas.getContext('2d');
 
-canvas.width=window.innerWidth;
-canvas.height=window.innerHeight;
+const canvas = document.getElementById("c")
+const ctx = canvas.getContext("2d")
 
-let size=30;
-let offsetX=canvas.width/2;
-let offsetY=canvas.height/2;
+/* GAME STATE — declared before any function uses it */
+let board = new Map()
+let turn = "X"
+let gameOver = false
+let winLine = null
 
-let board=new Map();
-let turn='X';
-let gameOver=false;
-let winLine=null; // [[q,r],[q,r]]
-let moved=false;
+/* VIEW STATE */
+let size = 32
+let offsetX = 0
+let offsetY = 0
 
-window.addEventListener('keydown',e=>{
- if(e.ctrlKey) canvas.style.cursor='grabbing';
-});
+/* INPUT STATE */
+let moved = false
+let lastTouch = null
+let pinchDist = null
 
-window.addEventListener('keyup',e=>{
- if(!e.ctrlKey) canvas.style.cursor='default';
-});
+function resize(){
+  canvas.width = window.innerWidth
+  canvas.height = window.innerHeight
 
-function key(q,r){return q+','+r}
+  offsetX = canvas.width/2
+  offsetY = canvas.height/2
 
-function drawHex(x,y){
-ctx.beginPath();
-for(let i=0;i<6;i++){
-let angle=Math.PI/180*(60*i+30);
-let px=x+size*Math.cos(angle);
-let py=y+size*Math.sin(angle);
-if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  draw()
 }
-ctx.closePath();
-ctx.strokeStyle='#333';
-ctx.stroke();
+
+window.addEventListener("resize", resize)
+resize()
+
+function key(q,r){
+  return q+","+r
 }
 
 function hexToPixel(q,r){
-let x=size*Math.sqrt(3)*(q+r/2)+offsetX;
-let y=size*1.5*r+offsetY;
-return [x,y];
+  const x = size*Math.sqrt(3)*(q+r/2)+offsetX
+  const y = size*1.5*r+offsetY
+  return [x,y]
 }
 
 function pixelToHex(x,y){
-x-=offsetX;
-y-=offsetY;
-let q=(Math.sqrt(3)/3*x-1/3*y)/size;
-let r=(2/3*y)/size;
-return hexRound(q,r);
+  x-=offsetX
+  y-=offsetY
+
+  const q=(Math.sqrt(3)/3*x-1/3*y)/size
+  const r=(2/3*y)/size
+
+  return hexRound(q,r)
 }
 
 function hexRound(q,r){
-let s=-q-r;
-let rq=Math.round(q);
-let rr=Math.round(r);
-let rs=Math.round(s);
+  let s=-q-r
 
-let q_diff=Math.abs(rq-q);
-let r_diff=Math.abs(rr-r);
-let s_diff=Math.abs(rs-s);
+  let rq=Math.round(q)
+  let rr=Math.round(r)
+  let rs=Math.round(s)
 
-if(q_diff>r_diff && q_diff>s_diff) rq=-rr-rs;
-else if(r_diff>s_diff) rr=-rq-rs;
+  const qd=Math.abs(rq-q)
+  const rd=Math.abs(rr-r)
+  const sd=Math.abs(rs-s)
 
-return [rq,rr];
+  if(qd>rd && qd>sd) rq=-rr-rs
+  else if(rd>sd) rr=-rq-rs
+
+  return [rq,rr]
+}
+
+function drawHex(x,y){
+  ctx.beginPath()
+
+  for(let i=0;i<6;i++){
+    const a=Math.PI/180*(60*i+30)
+    const px=x+size*Math.cos(a)
+    const py=y+size*Math.sin(a)
+
+    if(i===0) ctx.moveTo(px,py)
+    else ctx.lineTo(px,py)
+  }
+
+  ctx.closePath()
+  ctx.strokeStyle="#333"
+  ctx.stroke()
 }
 
 function drawPiece(x,y,v){
-ctx.fillStyle=v==='X'?'#ff4d4d':'#4da6ff';
-ctx.font=`${size}px sans-serif`;
-ctx.textAlign='center';
-ctx.textBaseline='middle';
-ctx.fillText(v,x,y+1);
+  ctx.fillStyle = v==='X' ? '#ff4d4d' : '#4da6ff'
+
+  ctx.font = `${size}px sans-serif`
+  ctx.textAlign='center'
+  ctx.textBaseline='middle'
+
+  ctx.fillText(v,x,y+1)
 }
 
 function draw(){
-ctx.clearRect(0,0,canvas.width,canvas.height);
 
-let range=25;
-for(let q=-range;q<range;q++){
-for(let r=-range;r<range;r++){
-let [x,y]=hexToPixel(q,r);
-drawHex(x,y);
-let v=board.get(key(q,r));
-if(v) drawPiece(x,y,v);
-}
+  ctx.clearRect(0,0,canvas.width,canvas.height)
+
+  const range = 15
+
+  for(let q=-range;q<range;q++){
+  for(let r=-range;r<range;r++){
+
+    const [x,y]=hexToPixel(q,r)
+
+    drawHex(x,y)
+
+    const v=board.get(key(q,r))
+
+    if(v) drawPiece(x,y,v)
+
+  }}
+
+  if(winLine){
+
+    const s=hexToPixel(winLine[0][0],winLine[0][1])
+    const e=hexToPixel(winLine[1][0],winLine[1][1])
+
+    ctx.strokeStyle="#22c55e"
+    ctx.lineWidth=5
+
+    ctx.beginPath()
+    ctx.moveTo(s[0],s[1])
+    ctx.lineTo(e[0],e[1])
+    ctx.stroke()
+
+    ctx.lineWidth=1
+  }
 }
 
-if(winLine){
-const start=hexToPixel(winLine[0][0],winLine[0][1]);
-const end=hexToPixel(winLine[1][0],winLine[1][1]);
-ctx.strokeStyle='#22c55e';
-ctx.lineWidth=Math.max(4,size*0.2);
-ctx.beginPath();
-ctx.moveTo(start[0],start[1]);
-ctx.lineTo(end[0],end[1]);
-ctx.stroke();
-ctx.lineWidth=1;
-}
-}
-
-const dirs=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
+const dirs=[
+[1,0],[0,1],[-1,1],
+[-1,0],[0,-1],[1,-1]
+]
 
 function checkWin(q,r){
-let player=board.get(key(q,r));
 
-for(let i=0;i<3;i++){
-let d1=dirs[i];
-let d2=dirs[i+3];
+  const p = board.get(key(q,r))
 
-let cells=[[q,r]];
+  for(let i=0;i<3;i++){
 
-for(let k=1;k<6;k++){
-let nq=q+d1[0]*k;
-let nr=r+d1[1]*k;
-if(board.get(key(nq,nr))===player) cells.push([nq,nr]); else break;
+    const d1 = dirs[i]
+    const d2 = dirs[i+3]
+
+    const cells=[[q,r]]
+
+    for(let k=1;k<6;k++){
+      const nq=q+d1[0]*k
+      const nr=r+d1[1]*k
+
+      if(board.get(key(nq,nr))===p)
+        cells.push([nq,nr])
+      else
+        break
+    }
+
+    for(let k=1;k<6;k++){
+      const nq=q+d2[0]*k
+      const nr=r+d2[1]*k
+
+      if(board.get(key(nq,nr))===p)
+        cells.unshift([nq,nr])
+      else
+        break
+    }
+
+    if(cells.length>=6){
+      winLine=[cells[0],cells[cells.length-1]]
+      return true
+    }
+  }
+
+  return false
 }
 
-for(let k=1;k<6;k++){
-let nq=q+d2[0]*k;
-let nr=r+d2[1]*k;
-if(board.get(key(nq,nr))===player) cells.unshift([nq,nr]); else break;
-}
+canvas.addEventListener("click", e=>{
 
-if(cells.length>=6){
-winLine=[cells[0],cells[cells.length-1]];
-return true;
-}
-}
+  if(gameOver || moved){
+    moved=false
+    return
+  }
 
-return false;
-}
+  const rect=canvas.getBoundingClientRect()
 
-canvas.addEventListener('click',e=>{
-if(e.ctrlKey) return;
-if(gameOver || moved) {
-moved=false;
-return;
-}
+  const x=e.clientX-rect.left
+  const y=e.clientY-rect.top
 
-let rect=canvas.getBoundingClientRect();
-let x=e.clientX-rect.left;
-let y=e.clientY-rect.top;
+  const [q,r]=pixelToHex(x,y)
 
-let [q,r]=pixelToHex(x,y);
-let k=key(q,r);
+  const k=key(q,r)
 
-if(board.has(k)) return;
+  if(board.has(k)) return
 
-board.set(k,turn);
+  board.set(k,turn)
 
-if(checkWin(q,r)) gameOver=true;
+  if(checkWin(q,r)) gameOver=true
 
-turn=turn==='X'?'O':'X';
-document.getElementById('turn').textContent=turn;
+  turn = turn==='X' ? 'O' : 'X'
 
-draw();
-});
+  document.getElementById("turn").textContent=turn
 
-canvas.addEventListener('mousemove',e=>{
-if(!e.ctrlKey) return;
+  draw()
+})
 
-moved=true;
-offsetX+=e.movementX;
-offsetY+=e.movementY;
+canvas.addEventListener("mousemove", e=>{
 
-draw();
-});
+  if(!e.ctrlKey) return
 
-canvas.addEventListener('wheel',e=>{
-size+=e.deltaY*-0.01;
-size=Math.max(10,Math.min(80,size));
-draw();
-});
+  moved=true
+
+  offsetX += e.movementX
+  offsetY += e.movementY
+
+  canvas.style.cursor="grabbing"
+
+  draw()
+})
+
+window.addEventListener("keyup", ()=>canvas.style.cursor="default")
+
+canvas.addEventListener("wheel", e=>{
+
+  size += e.deltaY * -0.01
+
+  size = Math.max(10,Math.min(80,size))
+
+  draw()
+})
+
+canvas.addEventListener("touchstart", e=>{
+
+  if(e.touches.length===1)
+    lastTouch=e.touches[0]
+
+  if(e.touches.length===2){
+
+    const dx=e.touches[0].clientX-e.touches[1].clientX
+    const dy=e.touches[0].clientY-e.touches[1].clientY
+
+    pinchDist=Math.hypot(dx,dy)
+  }
+
+})
+
+canvas.addEventListener("touchmove", e=>{
+
+  e.preventDefault()
+
+  if(e.touches.length===1){
+
+    const t=e.touches[0]
+
+    offsetX += t.clientX-lastTouch.clientX
+    offsetY += t.clientY-lastTouch.clientY
+
+    lastTouch=t
+
+    moved=true
+
+    draw()
+  }
+
+  if(e.touches.length===2){
+
+    const dx=e.touches[0].clientX-e.touches[1].clientX
+    const dy=e.touches[0].clientY-e.touches[1].clientY
+
+    const d=Math.hypot(dx,dy)
+
+    size += (d-pinchDist)*0.02
+
+    size = Math.max(10,Math.min(80,size))
+
+    pinchDist=d
+
+    draw()
+  }
+
+})
+
+canvas.addEventListener("touchend", e=>{
+
+  if(moved){
+    moved=false
+    return
+  }
+
+  const t=e.changedTouches[0]
+
+  const rect=canvas.getBoundingClientRect()
+
+  const x=t.clientX-rect.left
+  const y=t.clientY-rect.top
+
+  const [q,r]=pixelToHex(x,y)
+
+  const k=key(q,r)
+
+  if(board.has(k) || gameOver) return
+
+  board.set(k,turn)
+
+  if(checkWin(q,r)) gameOver=true
+
+  turn = turn==='X' ? 'O' : 'X'
+
+  document.getElementById("turn").textContent=turn
+
+  draw()
+})
 
 function reset(){
-board.clear();
-turn='X';
-gameOver=false;
-winLine=null;
-document.getElementById('turn').textContent=turn;
-draw();
+
+  board.clear()
+
+  turn="X"
+  gameOver=false
+  winLine=null
+
+  document.getElementById("turn").textContent=turn
+
+  resize()
 }
 
-document.getElementById('restart').onclick=reset;
+document.getElementById("restart").onclick=reset
 
-draw();
+draw()
+
 </script>
+
 </body>
 </html>
-
