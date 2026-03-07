@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hex Tic Tac Toe - Lobby</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0b0f14;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        .lobby-card {
+            background: #1f2937;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .link-box {
+            display: flex;
+            margin-top: 15px;
+            margin-bottom: 25px;
+        }
+
+        .link-box input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #374151;
+            background: #111;
+            color: #aaa;
+            border-radius: 6px 0 0 6px;
+            font-size: 14px;
+        }
+
+        .link-box button {
+            background: #4da6ff;
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 0 6px 6px 0;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .link-box button:hover {
+            background: #3b82f6;
+        }
+
+        .players {
+            text-align: left;
+            background: #111;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+
+        .player {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .player:last-child {
+            margin-bottom: 0;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #444;
+            margin-right: 10px;
+        }
+
+        .status-dot.active {
+            background: #22c55e;
+            box-shadow: 0 0 8px #22c55e;
+        }
+
+        .action-btn {
+            background: #22c55e;
+            color: #fff;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+            font-weight: bold;
+        }
+
+        .action-btn:hover:not(:disabled) {
+            background: #16a34a;
+        }
+
+        .action-btn:disabled {
+            background: #374151;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        .btn-quit {
+            background: transparent;
+            color: #ff4d4d;
+            border: 1px solid #ff4d4d;
+            margin-top: 15px;
+        }
+
+        .btn-quit:hover {
+            background: rgba(255, 77, 77, 0.1);
+        }
+
+        #status-msg {
+            margin-top: 15px;
+            color: #aaa;
+            font-size: 14px;
+            min-height: 20px;
+        }
+    </style>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+
+<body>
+
+    <div class="lobby-card">
+        <h1 id="lobby-title">Creating Room...</h1>
+
+        <div id="host-controls" style="display: none;">
+            <p style="margin: 0; color: #bbb; text-align: left; font-size: 14px;">Invite Link:</p>
+            <div class="link-box">
+                <input type="text" id="invite-link" readonly>
+                <button onclick="copyLink()" id="copy-btn">Copy</button>
+            </div>
+        </div>
+
+        <div class="players">
+            <div class="player">
+                <div class="status-dot active"></div>
+                <span id="p1-name">Host (You)</span>
+            </div>
+            <div class="player">
+                <div class="status-dot" id="p2-dot"></div>
+                <span id="p2-name" style="color: #888;">Waiting for player...</span>
+            </div>
+        </div>
+
+        <button id="start-btn" class="action-btn" disabled>Start Game</button>
+        <button class="action-btn btn-quit" onclick="leaveLobby()">Leave Lobby</button>
+
+        <div id="status-msg">Connecting to server...</div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const mode = urlParams.get('mode') || 'host';
+        const roomToJoin = urlParams.get('room');
+
+        let peer = null;
+        let conn = null;
+        let isHost = mode === 'host';
+
+        const statusMsg = document.getElementById('status-msg');
+        const p2Dot = document.getElementById('p2-dot');
+        const p2Name = document.getElementById('p2-name');
+        const startBtn = document.getElementById('start-btn');
+        const titleEl = document.getElementById('lobby-title');
+        const hostControls = document.getElementById('host-controls');
+
+        // Initialize Peer
+        peer = new Peer();
+
+        peer.on('error', (err) => {
+            console.error(err);
+            statusMsg.textContent = "Error: " + err.type;
+            statusMsg.style.color = "#ff4d4d";
+        });
+
+        if (isHost) {
+            titleEl.textContent = "Game Lobby";
+            document.getElementById('p1-name').textContent = "Host (X) - You";
+
+            peer.on('open', (id) => {
+                statusMsg.textContent = "Room created. Waiting for player...";
+                hostControls.style.display = 'block';
+
+                let basePath = window.location.origin + window.location.pathname.replace('lobby.html', 'index.html');
+                if (window.location.protocol === 'file:') basePath = window.location.href.replace('lobby.html', 'index.html');
+
+                const joinUrl = basePath.split('?')[0] + '?mode=join&room=' + id;
+                document.getElementById('invite-link').value = joinUrl;
+            });
+
+            peer.on('connection', (c) => {
+                // If someone is already connected, reject incoming
+                if (conn && conn.peer !== c.peer) {
+                    setTimeout(() => { c.send({ type: 'error', msg: 'Room is full' }); c.close(); }, 500);
+                    return;
+                }
+
+                conn = c;
+                setupConnection();
+
+                statusMsg.textContent = "Player joined!";
+                statusMsg.style.color = "#22c55e";
+                p2Dot.classList.add('active');
+                p2Name.textContent = "Player 2 (O)";
+                p2Name.style.color = "#fff";
+                startBtn.disabled = false;
+            });
+
+            startBtn.onclick = () => {
+                if (conn && conn.open) {
+                    conn.send({ type: 'start' });
+                    sessionStorage.setItem('hex_peer_host_id', peer.id);
+                    sessionStorage.setItem('hex_peer_remote_id', conn.peer);
+                    // Keep the connection open and pass it to game.html? 
+                    // PeerJS connections can't be passed between pages. 
+                    // Best solution: Do the game in the same page OR reconnect.
+                    // Doing a quick redirect and passing the guest ID to dial back
+                    window.location.href = `game.html?mode=host&room=${peer.id}&guest=${conn.peer}`;
+                }
+            };
+
+        } else {
+            // Joiner
+            titleEl.textContent = "Joining Room...";
+            document.getElementById('p1-name').textContent = "Host (X)";
+            p2Name.textContent = "Player 2 (O) - You";
+            hostControls.style.display = 'none';
+            startBtn.style.display = 'none'; // Guest can't start
+
+            peer.on('open', () => {
+                statusMsg.textContent = "Connecting to host...";
+                conn = peer.connect(roomToJoin);
+                setupConnection();
+            });
+        }
+
+        function setupConnection() {
+            conn.on('open', () => {
+                if (!isHost) {
+                    statusMsg.textContent = "Connected! Waiting for host to start...";
+                    statusMsg.style.color = "#22c55e";
+                    p2Dot.classList.add('active');
+                    p2Name.style.color = "#fff";
+                    document.getElementById('p1-name').textContent = "Host (X)";
+                }
+            });
+
+            conn.on('data', (data) => {
+                if (data.type === 'start' && !isHost) {
+                    window.location.href = `game.html?mode=join&room=${roomToJoin}`;
+                }
+                if (data.type === 'error') {
+                    statusMsg.textContent = data.msg;
+                    statusMsg.style.color = "#ff4d4d";
+                    conn.close();
+                }
+            });
+
+            conn.on('close', handleDisconnect);
+            peer.on('disconnected', handleDisconnect);
+        }
+
+        function handleDisconnect() {
+            if (isHost) {
+                statusMsg.textContent = "Player left the lobby.";
+                statusMsg.style.color = "#ff4d4d";
+                p2Dot.classList.remove('active');
+                p2Name.textContent = "Waiting for player...";
+                p2Name.style.color = "#888";
+                startBtn.disabled = true;
+                conn = null;
+            } else {
+                statusMsg.textContent = "Host left the lobby. Room destroyed.";
+                statusMsg.style.color = "#ff4d4d";
+                p2Dot.classList.remove('active');
+                document.getElementById('p1-name').style.color = "#888";
+                document.getElementById('p1-name').textContent = "Host Disconnected";
+                conn = null;
+            }
+        }
+
+        function copyLink() {
+            const link = document.getElementById('invite-link');
+            link.select();
+            document.execCommand('copy');
+            const btn = document.getElementById('copy-btn');
+            btn.textContent = 'Copied!';
+            btn.style.background = '#22c55e';
+            setTimeout(() => {
+                btn.textContent = 'Copy';
+                btn.style.background = '#4da6ff';
+            }, 2000);
+        }
+
+        function leaveLobby() {
+            if (conn) conn.close();
+            if (peer) peer.destroy();
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+
+</html>

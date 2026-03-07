@@ -2,8 +2,8 @@
 <html>
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hex Tic Tac Toe - Game</title>
     <style>
         body {
@@ -11,12 +11,157 @@
             background: #0b0f14;
             color: #fff;
             font-family: sans-serif;
-            overflow: hidden
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        /* Lobby Styles */
+        .lobby-card {
+            background: #1f2937;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            z-index: 100;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        .link-box {
+            display: flex;
+            margin-top: 15px;
+            margin-bottom: 25px;
+        }
+
+        .link-box input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #374151;
+            background: #111;
+            color: #aaa;
+            border-radius: 6px 0 0 6px;
+            font-size: 14px;
+        }
+
+        .link-box button {
+            background: #4da6ff;
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 0 6px 6px 0;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .link-box button:hover {
+            background: #3b82f6;
+        }
+
+        .players {
+            text-align: left;
+            background: #111;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+
+        .player {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .player:last-child {
+            margin-bottom: 0;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #444;
+            margin-right: 10px;
+        }
+
+        .status-dot.active {
+            background: #22c55e;
+            box-shadow: 0 0 8px #22c55e;
+        }
+
+        .action-btn {
+            background: #22c55e;
+            color: #fff;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+            font-weight: bold;
+        }
+
+        .action-btn:hover:not(:disabled) {
+            background: #16a34a;
+        }
+
+        .action-btn:disabled {
+            background: #374151;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        .btn-quit {
+            background: transparent;
+            color: #ff4d4d;
+            border: 1px solid #ff4d4d;
+            margin-top: 15px;
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .btn-quit:hover {
+            background: rgba(255, 77, 77, 0.1);
+        }
+
+        #status-msg {
+            margin-top: 15px;
+            color: #aaa;
+            font-size: 14px;
+            min-height: 20px;
+        }
+
+        /* Game Styles */
+        #game-container {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
         }
 
         canvas {
             display: block;
-            touch-action: none
+            touch-action: none;
+            position: absolute;
+            top: 0;
+            left: 0;
         }
 
         #ui {
@@ -29,6 +174,13 @@
             z-index: 10;
         }
 
+        #restart-container {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+        }
+
         #restart {
             background: #1f2937;
             color: #fff;
@@ -36,7 +188,6 @@
             padding: 8px 12px;
             border-radius: 6px;
             cursor: pointer;
-            z-index: 10;
         }
 
         #mobileHelp {
@@ -53,22 +204,6 @@
             white-space: nowrap;
         }
 
-        #status {
-            margin-top: 8px;
-            font-size: 14px;
-            color: #aaa;
-        }
-
-        #status input {
-            background: #222;
-            color: #fff;
-            border: 1px solid #444;
-            padding: 4px;
-            width: 250px;
-            border-radius: 4px;
-            margin-top: 4px;
-        }
-
         .btn-back {
             background: #ff4d4d;
             color: #fff;
@@ -77,6 +212,8 @@
             border-radius: 6px;
             margin-right: 10px;
             cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
         }
     </style>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -84,105 +221,247 @@
 
 <body>
 
-    <div id="ui">Turn: <span id="turn">X</span>
-        <div id="status"></div>
-    </div>
-    <div id="restart-container" style="position:fixed;top:10px;right:10px; z-index: 10;">
-        <button id="backMenu" class="btn-back" onclick="location.href='index.html'">Quit</button>
-        <button id="restart">New Game</button>
-    </div>
-    <div id="mobileHelp">Tap: place • Drag: move • Pinch: zoom</div>
+    <!-- LOBBY SCREEN -->
+    <div id="lobby-screen" class="lobby-card">
+        <h1 id="lobby-title">Room</h1>
 
-    <canvas id="c"></canvas>
+        <div id="host-controls" style="display: none;">
+            <p style="margin: 0; color: #bbb; text-align: left; font-size: 14px;">Invite Link:</p>
+            <div class="link-box">
+                <input type="text" id="invite-link" readonly>
+                <button onclick="copyLink()" id="copy-btn">Copy</button>
+            </div>
+        </div>
+
+        <div class="players">
+            <div class="player">
+                <div class="status-dot active"></div>
+                <span id="p1-name">Player 1</span>
+            </div>
+            <div class="player">
+                <div class="status-dot" id="p2-dot"></div>
+                <span id="p2-name" style="color: #888;">Waiting for player...</span>
+            </div>
+        </div>
+
+        <button id="start-btn" class="action-btn" disabled>Start Game</button>
+        <button class="btn-quit" onclick="leaveLobby()">Leave Room</button>
+        <div id="status-msg">Connecting...</div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="game-container">
+        <div id="ui">Turn: <span id="turn">X</span></div>
+        <div id="restart-container">
+            <button class="btn-back" onclick="leaveGame()">Quit</button>
+            <button id="restart">New Game</button>
+        </div>
+        <div id="mobileHelp">Tap: place • Drag: move • Pinch: zoom</div>
+        <canvas id="c"></canvas>
+    </div>
 
     <script>
-        const canvas = document.getElementById("c")
-        const ctx = canvas.getContext("2d")
-
-        /* GAME STATE */
-        let board = new Map()
-        let turn = "X"
-        let gameOver = false
-        let winLine = null
-
-        /* VIEW STATE */
-        let size = 32
-        let offsetX = 0
-        let offsetY = 0
-
-        /* INPUT STATE */
-        let moved = false
-        let lastTouch = null
-        let pinchDist = null
-
-        /* MULTIPLAYER STATE */
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode') || 'local';
-        const room = urlParams.get('room');
+        const roomToJoin = urlParams.get('room');
 
+        const lobbyScreen = document.getElementById('lobby-screen');
+        const gameContainer = document.getElementById('game-container');
+
+        // Canvas
+        const canvas = document.getElementById("c");
+        const ctx = canvas.getContext("2d");
+
+        /* GAME STATE */
+        let board = new Map();
+        let turn = "X";
+        let gameOver = false;
+        let winLine = null;
+
+        /* VIEW STATE */
+        let size = 32;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        /* INPUT STATE */
+        let moved = false;
+        let lastTouch = null;
+        let pinchDist = null;
+
+        /* MULTIPLAYER STATE */
         let isMultiplayer = mode === 'host' || mode === 'join';
-        let myPlayer = null; // 'X' for host, 'O' for join
+        let myPlayer = null;
         let peer = null;
         let conn = null;
 
-        const statusDiv = document.getElementById('status');
+        // Lobby DOM
+        const statusMsg = document.getElementById('status-msg');
+        const p2Dot = document.getElementById('p2-dot');
+        const p2Name = document.getElementById('p2-name');
+        const startBtn = document.getElementById('start-btn');
+        const titleEl = document.getElementById('lobby-title');
+        const hostControls = document.getElementById('host-controls');
 
-        if (mode === 'host') {
-            myPlayer = 'X';
-            document.getElementById('restart').style.display = 'none';
-            peer = new Peer();
-            peer.on('open', (id) => {
-                let basePath = window.location.origin + window.location.pathname.replace('game.html', 'index.html');
-                // Handle case where we are not running on a server but local file System
-                if (window.location.protocol === 'file:') basePath = window.location.href.replace('game.html', 'index.html');
-
-                const joinUrl = basePath.split('?')[0] + '?mode=join&room=' + id;
-                statusDiv.innerHTML = `Share link: <input type="text" value="${joinUrl}" readonly onclick="this.select()"> <br> Waiting for friend...`;
-            });
-            peer.on('connection', (c) => {
-                if (conn) return;
-                conn = c;
-                setupConnection();
-                statusDiv.innerHTML = `Friend connected! You are 'X'.`;
-            });
-        } else if (mode === 'join' && room) {
-            myPlayer = 'O';
-            document.getElementById('restart').style.display = 'none';
-            peer = new Peer();
-            peer.on('open', () => {
-                statusDiv.innerHTML = `Connecting to host...`;
-                conn = peer.connect(room);
-                setupConnection();
-            });
+        if (mode === 'local') {
+            lobbyScreen.style.display = 'none';
+            gameContainer.style.display = 'block';
+            resize();
+            draw();
         } else {
-            statusDiv.innerHTML = `Pass N Play`;
+            // Multiplayer logic
+            peer = new Peer();
+
+            peer.on('error', (err) => {
+                console.error(err);
+                statusMsg.textContent = "Error: " + err.type;
+                statusMsg.style.color = "#ff4d4d";
+            });
+
+            if (mode === 'host') {
+                myPlayer = 'X';
+                titleEl.textContent = "Game Lobby";
+                document.getElementById('p1-name').textContent = "Host (X) - You";
+                document.getElementById('restart').style.display = 'none'; // No local restart for MP
+
+                peer.on('open', (id) => {
+                    statusMsg.textContent = "Room created. Waiting for player...";
+                    hostControls.style.display = 'block';
+
+                    let basePath = window.location.origin + window.location.pathname.replace('game.html', 'index.html');
+                    if (window.location.protocol === 'file:') basePath = window.location.href.replace('game.html', 'index.html');
+
+                    const joinUrl = basePath.split('?')[0] + '?mode=join&room=' + id;
+                    document.getElementById('invite-link').value = joinUrl;
+                });
+
+                peer.on('connection', (c) => {
+                    if (conn && conn.peer !== c.peer) {
+                        setTimeout(() => { c.send({ type: 'error', msg: 'Room is full' }); c.close(); }, 500);
+                        return;
+                    }
+                    conn = c;
+                    setupConnection();
+
+                    statusMsg.textContent = "Player joined!";
+                    statusMsg.style.color = "#22c55e";
+                    p2Dot.classList.add('active');
+                    p2Name.textContent = "Player 2 (O)";
+                    p2Name.style.color = "#fff";
+                    startBtn.disabled = false;
+                });
+
+                startBtn.onclick = () => {
+                    if (conn && conn.open) {
+                        conn.send({ type: 'start' });
+                        startGame();
+                    }
+                };
+
+            } else if (mode === 'join') {
+                myPlayer = 'O';
+                titleEl.textContent = "Joining Room...";
+                document.getElementById('p1-name').textContent = "Host (X)";
+                p2Name.textContent = "Player 2 (O) - You";
+                hostControls.style.display = 'none';
+                startBtn.style.display = 'none';
+                document.getElementById('restart').style.display = 'none';
+
+                peer.on('open', () => {
+                    statusMsg.textContent = "Connecting to host...";
+                    conn = peer.connect(roomToJoin);
+                    setupConnection();
+                });
+            }
         }
 
         function setupConnection() {
             conn.on('open', () => {
-                if (mode === 'join') statusDiv.innerHTML = `Connected! You are 'O'.`;
+                if (mode === 'join') {
+                    statusMsg.textContent = "Connected! Waiting for host to start...";
+                    statusMsg.style.color = "#22c55e";
+                    p2Dot.classList.add('active');
+                    p2Name.style.color = "#fff";
+                    document.getElementById('p1-name').textContent = "Host (X)";
+                }
             });
+
             conn.on('data', (data) => {
-                if (data.type === 'move') {
+                if (data.type === 'start' && mode === 'join') {
+                    startGame();
+                } else if (data.type === 'error') {
+                    statusMsg.textContent = data.msg;
+                    statusMsg.style.color = "#ff4d4d";
+                    conn.close();
+                } else if (data.type === 'move') {
                     applyMoveEx(data.q, data.r, data.player);
                     if (!isHexVisible(data.q, data.r)) {
                         focusOnHex(data.q, data.r);
                     }
                 }
             });
-            conn.on('close', () => {
-                if (!gameOver) window.location.href = `result.html?winner=${myPlayer}&reason=disconnect`;
-            });
-            peer.on('disconnected', () => {
-                if (!gameOver) window.location.href = `result.html?winner=${myPlayer}&reason=disconnect`;
-            });
-            peer.on('error', (err) => {
-                console.error(err);
-                if (!gameOver) window.location.href = `result.html?winner=${myPlayer}&reason=error`;
-            });
+
+            conn.on('close', handleDisconnect);
+            peer.on('disconnected', handleDisconnect);
+        }
+
+        function handleDisconnect() {
+            if (gameOver) return;
+            if (lobbyScreen.style.display !== 'none') {
+                if (mode === 'host') {
+                    statusMsg.textContent = "Player left the lobby.";
+                    statusMsg.style.color = "#ff4d4d";
+                    p2Dot.classList.remove('active');
+                    p2Name.textContent = "Waiting for player...";
+                    p2Name.style.color = "#888";
+                    startBtn.disabled = true;
+                    conn = null;
+                } else {
+                    statusMsg.textContent = "Host left the lobby. Room destroyed.";
+                    statusMsg.style.color = "#ff4d4d";
+                    p2Dot.classList.remove('active');
+                    document.getElementById('p1-name').style.color = "#888";
+                    document.getElementById('p1-name').textContent = "Host Disconnected";
+                    conn = null;
+                }
+            } else {
+                window.location.href = `result.html?winner=${myPlayer}&reason=disconnect`;
+            }
+        }
+
+        function copyLink() {
+            const link = document.getElementById('invite-link');
+            link.select();
+            document.execCommand('copy');
+            const btn = document.getElementById('copy-btn');
+            btn.textContent = 'Copied!';
+            btn.style.background = '#22c55e';
+            setTimeout(() => {
+                btn.textContent = 'Copy';
+                btn.style.background = '#4da6ff';
+            }, 2000);
+        }
+
+        function leaveLobby() {
+            if (conn) conn.close();
+            if (peer) peer.destroy();
+            window.location.href = 'index.html';
+        }
+
+        function leaveGame() {
+            if (conn) conn.close();
+            if (peer) peer.destroy();
+            window.location.href = 'index.html';
+        }
+
+        function startGame() {
+            lobbyScreen.style.display = 'none';
+            gameContainer.style.display = 'block';
+            resize();
+            draw();
         }
 
         function resize() {
+            if (gameContainer.style.display === 'none') return;
             canvas.width = window.innerWidth
             canvas.height = window.innerHeight
             offsetX = canvas.width / 2
@@ -191,7 +470,6 @@
         }
 
         window.addEventListener("resize", resize)
-        resize()
 
         function key(q, r) { return q + "," + r }
 
@@ -220,20 +498,6 @@
             if (qd > rd && qd > sd) rq = -rr - rs
             else if (rd > sd) rr = -rq - rs
             return [rq, rr]
-        }
-
-        function drawHex(x, y) {
-            ctx.beginPath()
-            for (let i = 0; i < 6; i++) {
-                const a = Math.PI / 180 * (60 * i + 30)
-                const px = x + size * Math.cos(a)
-                const py = y + size * Math.sin(a)
-                if (i === 0) ctx.moveTo(px, py)
-                else ctx.lineTo(px, py)
-            }
-            ctx.closePath()
-            ctx.strokeStyle = "#333"
-            ctx.stroke()
         }
 
         function isHexVisible(q, r) {
@@ -274,6 +538,20 @@
             focusAnimFrame = requestAnimationFrame(animate);
         }
 
+        function drawHex(x, y) {
+            ctx.beginPath()
+            for (let i = 0; i < 6; i++) {
+                const a = Math.PI / 180 * (60 * i + 30)
+                const px = x + size * Math.cos(a)
+                const py = y + size * Math.sin(a)
+                if (i === 0) ctx.moveTo(px, py)
+                else ctx.lineTo(px, py)
+            }
+            ctx.closePath()
+            ctx.strokeStyle = "#333"
+            ctx.stroke()
+        }
+
         function drawPiece(x, y, v) {
             ctx.fillStyle = v === 'X' ? '#ff4d4d' : '#4da6ff'
             ctx.font = `${size}px sans-serif`
@@ -283,6 +561,7 @@
         }
 
         function draw() {
+            if (gameContainer.style.display === 'none') return;
             ctx.clearRect(0, 0, canvas.width, canvas.height)
             const range = 15
             for (let q = -range; q < range; q++) {
@@ -355,6 +634,7 @@
         }
 
         canvas.addEventListener("click", e => {
+            if (gameContainer.style.display === 'none') return;
             if (gameOver || moved) {
                 moved = false
                 return
@@ -381,6 +661,7 @@
         })
 
         canvas.addEventListener("mousemove", e => {
+            if (gameContainer.style.display === 'none') return;
             if (!e.ctrlKey) return
             if (focusAnimFrame) cancelAnimationFrame(focusAnimFrame);
             moved = true
@@ -393,6 +674,7 @@
         window.addEventListener("keyup", () => canvas.style.cursor = "default")
 
         canvas.addEventListener("wheel", e => {
+            if (gameContainer.style.display === 'none') return;
             if (focusAnimFrame) cancelAnimationFrame(focusAnimFrame);
             size += e.deltaY * -0.01
             size = Math.max(10, Math.min(80, size))
@@ -400,6 +682,7 @@
         })
 
         canvas.addEventListener("touchstart", e => {
+            if (gameContainer.style.display === 'none') return;
             if (e.touches.length === 1) {
                 lastTouch = e.touches[0]
                 if (focusAnimFrame) cancelAnimationFrame(focusAnimFrame);
@@ -412,6 +695,7 @@
         })
 
         canvas.addEventListener("touchmove", e => {
+            if (gameContainer.style.display === 'none') return;
             e.preventDefault()
             if (e.touches.length === 1) {
                 const t = e.touches[0]
@@ -433,6 +717,7 @@
         }, { passive: false })
 
         canvas.addEventListener("touchend", e => {
+            if (gameContainer.style.display === 'none') return;
             if (moved) {
                 moved = false
                 return
@@ -471,8 +756,6 @@
         }
 
         document.getElementById("restart").onclick = reset
-
-        draw()
     </script>
 
 </body>
