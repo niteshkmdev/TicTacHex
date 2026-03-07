@@ -4,11 +4,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hex Tic Tac Toe - Menu</title>
+  <title>TicTacHex - Multiplayer Hexagonal Tic Tac Toe</title>
+  <meta name="theme-color" content="#111" />
+  <meta name="description"
+    content="Play TicTacHex - a strategic hexagonal twist on the classic Tic Tac Toe game with P2P Multiplayer built using WebRTC." />
+  <meta name="keywords" content="tic tac toe, hex, hexagon, multiplayer, game, game night, webrtc, peerjs, html5" />
+  <meta name="author" content="TicTacHex" />
+
+  <!-- Open Graph / Meta -->
+  <meta property="og:title" content="TicTacHex - Multiplayer Hexagonal Tic Tac Toe" />
+  <meta property="og:description"
+    content="Play a strategic hexagonal twist on classic Tic Tac Toe with local or online P2P multiplayer." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://tictachex.example.com/" />
+  <meta property="og:image" content="https://tictachex.example.com/image.png" />
+  <meta property="og:site_name" content="TicTacHex" />
+
+  <!-- Twitter Meta -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="TicTacHex - Multiplayer Hexagonal Tic Tac Toe" />
+  <meta name="twitter:description"
+    content="Play a strategic hexagonal twist on classic Tic Tac Toe with local or online P2P multiplayer." />
+  <meta name="twitter:image" content="https://tictachex.example.com/image.png" />
+
+  <!-- Icons -->
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="assets/icon-192.png" />
+  <link rel="manifest" href="manifest.json" />
   <style>
     body {
       margin: 0;
-      background: #0b0f14;
+      background: radial-gradient(circle at 10% 20%, rgb(30, 0, 30) 0%, rgb(17, 17, 17) 90.2%);
       color: #fff;
       font-family: sans-serif;
       display: flex;
@@ -16,12 +42,46 @@
       align-items: center;
       justify-content: center;
       height: 100vh;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Ambient Hexagons Background Overlay */
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" opacity="0.05"><polygon points="50,5 95,27.5 95,72.5 50,95 5,72.5 5,27.5" fill="none" stroke="%23E94057" stroke-width="2"/></svg>');
+      background-size: 100px 100px;
+      z-index: -1;
+    }
+
+    .glass-container {
+      background: rgba(20, 20, 20, 0.08);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 40px;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 90%;
+      max-width: 400px;
     }
 
     h1 {
       font-size: 3rem;
       margin-bottom: 2rem;
       text-align: center;
+      background: linear-gradient(45deg, #8A2387, #E94057, #F27121);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0px 4px 6px rgba(0, 0, 0, 0.5);
     }
 
     .menu-options {
@@ -40,13 +100,14 @@
       border-radius: 8px;
       font-size: 18px;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: background 0.2s, border-color 0.2s;
       width: 100%;
       box-sizing: border-box;
     }
 
     button:hover:not(:disabled) {
-      background: #374151;
+      background: #2a3342;
+      border-color: #E94057;
     }
 
     button:disabled {
@@ -57,11 +118,13 @@
 </head>
 
 <body>
-  <h1>Hex Tic Tac<br>Toe</h1>
-  <div class="menu-options">
-    <button onclick="location.href='game.html?mode=local'">Pass N Play</button>
-    <button onclick="location.href='game.html?mode=host'">Play with Friend</button>
-    <button disabled>Play Online (Matchmaking)</button>
+  <div class="glass-container">
+    <h1>Hex Tic Tac<br>Toe</h1>
+    <div class="menu-options">
+      <button onclick="location.href='game.html?mode=local'">Pass N Play</button>
+      <button onclick="location.href='game.html?mode=host'">Play with Friend</button>
+      <button disabled>Play Online (Matchmaking)</button>
+    </div>
   </div>
 
   <script>

@@ -5,10 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hex Tic Tac Toe - Result</title>
+    <meta name="theme-color" content="#111" />
     <style>
         body {
             margin: 0;
-            background: #0b0f14;
+            background: radial-gradient(circle at 10% 20%, rgb(30, 0, 30) 0%, rgb(17, 17, 17) 90.2%);
             color: #fff;
             font-family: sans-serif;
             display: flex;
@@ -17,6 +18,32 @@
             justify-content: center;
             height: 100vh;
             text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Ambient Hexagons Background Overlay */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" opacity="0.05"><polygon points="50,5 95,27.5 95,72.5 50,95 5,72.5 5,27.5" fill="none" stroke="%23E94057" stroke-width="2"/></svg>');
+            background-size: 100px 100px;
+            z-index: -1;
+        }
+
+        .glass-container {
+            background: rgba(20, 20, 20, 0.08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 50px 40px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 450px;
         }
 
         h1 {
@@ -43,25 +70,28 @@
         }
 
         button:hover {
-            background: #374151;
+            background: #E94057;
+            border-color: #F27121;
         }
 
         .winner-X {
-            color: #ff4d4d;
+            color: #E94057;
         }
 
         .winner-O {
-            color: #4da6ff;
+            color: #D946EF;
         }
     </style>
 </head>
 
 <body>
-    <div id="result-content">
-        <h1 id="winner-title">Game Over</h1>
-        <h2 id="reason-desc"></h2>
+    <div class="glass-container">
+        <div id="result-content">
+            <h1 id="winner-title">Game Over</h1>
+            <h2 id="reason-desc"></h2>
+        </div>
+        <button onclick="location.href='index.html'">Back to Main Menu</button>
     </div>
-    <button onclick="location.href='index.html'">Back to Main Menu</button>
 
     <script>
         const params = new URLSearchParams(window.location.search);

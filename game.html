@@ -4,11 +4,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hex Tic Tac Toe - Game</title>
+    <title>TicTacHex - Play Game</title>
+    <meta name="theme-color" content="#111" />
+    <meta name="description"
+        content="Play TicTacHex - a strategic hexagonal twist on the classic Tic Tac Toe game with P2P Multiplayer built using WebRTC." />
+    <meta name="keywords" content="tic tac toe, hex, hexagon, multiplayer, game, game night, webrtc, peerjs, html5" />
+    <meta name="author" content="TicTacHex" />
+
+    <!-- Open Graph / Meta -->
+    <meta property="og:title" content="TicTacHex - Play Game" />
+    <meta property="og:description"
+        content="Play a strategic hexagonal twist on classic Tic Tac Toe with local or online P2P multiplayer." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://tictachex.example.com/game.html" />
+    <meta property="og:image" content="https://tictachex.example.com/image.png" />
+    <meta property="og:site_name" content="TicTacHex" />
+
+    <!-- Twitter Meta -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="TicTacHex - Play Game" />
+    <meta name="twitter:description"
+        content="Play a strategic hexagonal twist on classic Tic Tac Toe with local or online P2P multiplayer." />
+    <meta name="twitter:image" content="https://tictachex.example.com/image.png" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="icon.svg" />
+    <link rel="apple-touch-icon" href="assets/icon-192.png" />
+    <link rel="manifest" href="manifest.json" />
     <style>
         body {
             margin: 0;
-            background: #0b0f14;
+            background: #111;
             color: #fff;
             font-family: sans-serif;
             overflow: hidden;
@@ -19,17 +45,54 @@
             height: 100vh;
         }
 
+        body {
+            --before-display: block;
+            margin: 0;
+            background: radial-gradient(circle at 10% 20%, rgb(30, 0, 30) 0%, rgb(17, 17, 17) 90.2%);
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        body::before {
+            display: var(--before-display);
+            content: '';
+            height: 100vh;
+            width: 100vw;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" opacity="0.05"><polygon points="50,5 95,27.5 95,72.5 50,95 5,72.5 5,27.5" fill="none" stroke="%23E94057" stroke-width="2"/></svg>');
+            background-size: 100px 100px;
+            z-index: -1;
+        }
+
+
+
         /* Lobby Styles */
         .lobby-card {
-            background: #1f2937;
-            padding: 30px;
-            border-radius: 12px;
+            background: rgba(20, 20, 20, 0.08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 50px 40px;
+            border-radius: 20px;
             width: 90%;
-            max-width: 400px;
+            max-width: 450px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
             text-align: center;
             z-index: 100;
         }
+
+
 
         h1 {
             font-size: 2.5rem;
@@ -53,7 +116,7 @@
         }
 
         .link-box button {
-            background: #4da6ff;
+            background: #8A2387;
             color: #fff;
             border: none;
             padding: 10px 15px;
@@ -63,7 +126,7 @@
         }
 
         .link-box button:hover {
-            background: #3b82f6;
+            background: #E94057;
         }
 
         .players {
@@ -99,7 +162,7 @@
         }
 
         .action-btn {
-            background: #22c55e;
+            background: #E94057;
             color: #fff;
             border: none;
             padding: 15px;
@@ -112,7 +175,7 @@
         }
 
         .action-btn:hover:not(:disabled) {
-            background: #16a34a;
+            background: #F27121;
         }
 
         .action-btn:disabled {
@@ -205,7 +268,7 @@
         }
 
         .btn-back {
-            background: #ff4d4d;
+            background: #E94057;
             color: #fff;
             border: none;
             padding: 8px 12px;
@@ -223,6 +286,7 @@
 
     <!-- LOBBY SCREEN -->
     <div id="lobby-screen" class="lobby-card">
+        <div class="bg"></div>
         <h1 id="lobby-title">Room</h1>
 
         <div id="host-controls" style="display: none;">
@@ -305,6 +369,9 @@
         if (mode === 'local') {
             lobbyScreen.style.display = 'none';
             gameContainer.style.display = 'block';
+            const body = document.querySelector('body');
+            body.style.setProperty('--before-display', 'none')
+            updateTurnDisplay();
             resize();
             draw();
         } else {
@@ -434,10 +501,10 @@
             document.execCommand('copy');
             const btn = document.getElementById('copy-btn');
             btn.textContent = 'Copied!';
-            btn.style.background = '#22c55e';
+            btn.style.background = '#F27121';
             setTimeout(() => {
                 btn.textContent = 'Copy';
-                btn.style.background = '#4da6ff';
+                btn.style.background = '#8A2387';
             }, 2000);
         }
 
@@ -454,8 +521,11 @@
         }
 
         function startGame() {
+            const body = document.querySelector('body');
+            body.style.setProperty('--before-display', 'none')
             lobbyScreen.style.display = 'none';
             gameContainer.style.display = 'block';
+            updateTurnDisplay();
             resize();
             draw();
         }
@@ -548,16 +618,24 @@
                 else ctx.lineTo(px, py)
             }
             ctx.closePath()
-            ctx.strokeStyle = "#333"
+            const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            grad.addColorStop(0, 'rgba(138, 35, 135, 0.4)');
+            grad.addColorStop(0.5, 'rgba(233, 64, 87, 0.4)');
+            grad.addColorStop(1, 'rgba(242, 113, 33, 0.4)');
+            ctx.strokeStyle = grad;
             ctx.stroke()
         }
 
         function drawPiece(x, y, v) {
-            ctx.fillStyle = v === 'X' ? '#ff4d4d' : '#4da6ff'
-            ctx.font = `${size}px sans-serif`
-            ctx.textAlign = 'center'
-            ctx.textBaseline = 'middle'
-            ctx.fillText(v, x, y + 1)
+            const color = v === 'X' ? '#E94057' : '#D946EF';
+            ctx.fillStyle = color;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = color;
+            ctx.font = `bold ${size}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(v, x, y + 1);
+            ctx.shadowBlur = 0;
         }
 
         function draw() {
@@ -628,8 +706,24 @@
                 }, 1500);
             } else {
                 turn = turn === 'X' ? 'O' : 'X';
-                document.getElementById("turn").textContent = turn;
+                updateTurnDisplay();
                 draw();
+            }
+        }
+
+        function updateTurnDisplay() {
+            const turnSpan = document.getElementById("turn");
+            if (isMultiplayer) {
+                if (turn === myPlayer) {
+                    turnSpan.innerHTML = `<b>${turn} (Your Turn)</b>`;
+                    turnSpan.style.color = '#22c55e';
+                } else {
+                    turnSpan.textContent = `${turn} (Waiting...)`;
+                    turnSpan.style.color = '#fff';
+                }
+            } else {
+                turnSpan.textContent = turn;
+                turnSpan.style.color = '#fff';
             }
         }
 
@@ -751,7 +845,7 @@
             turn = "X"
             gameOver = false
             winLine = null
-            document.getElementById("turn").textContent = turn
+            updateTurnDisplay()
             resize()
         }
 

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="shapeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8A2387;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#E94057;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F27121;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="#111" rx="112" ry="112" />
+  <g transform="translate(256, 256)">
+    <!-- 3 Interlocking Hexes -->
+    <g stroke="url(#shapeGrad)" stroke-width="14" fill="none">
+       <polygon points="0,-80 69.28,-40 69.28,40 0,80 -69.28,40 -69.28,-40" transform="translate(0, -90)" />
+       <polygon points="0,-80 69.28,-40 69.28,40 0,80 -69.28,40 -69.28,-40" transform="translate(-75, 45)" />
+       <polygon points="0,-80 69.28,-40 69.28,40 0,80 -69.28,40 -69.28,-40" transform="translate(75, 45)" />
+    </g>
+    <!-- X and O pieces -->
+    <circle cx="0" cy="-90" r="20" fill="url(#shapeGrad)" />
+    <path d="M-90,30 L-60,60 M-90,60 L-60,30" stroke="url(#shapeGrad)" stroke-width="10" stroke-linecap="round" />
+  </g>
+</svg>
