@@ -325,6 +325,7 @@
     </div>
 
     <script>
+        const MATCH_URL = "https://tictachex-matchmaking.niteshkmdev.workers.dev/match";
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode') || 'local';
         const roomToJoin = urlParams.get('room');
@@ -353,7 +354,7 @@
         let pinchDist = null;
 
         /* MULTIPLAYER STATE */
-        let isMultiplayer = mode === 'host' || mode === 'join';
+        let isMultiplayer = mode === 'host' || mode === 'join' || mode === 'matchmaking';
         let myPlayer = null;
         let peer = null;
         let conn = null;
@@ -377,7 +378,21 @@
         } else {
             // Multiplayer logic
             peer = new Peer();
+            peer.on('connection', (c) => {
 
+                conn = c;
+                setupConnection();
+
+                statusMsg.textContent = "Opponent connected!";
+                statusMsg.style.color = "#22c55e";
+
+                p2Dot.classList.add('active');
+                p2Name.textContent = "Opponent";
+                p2Name.style.color = "#fff";
+
+                startGame();
+
+            });
             peer.on('error', (err) => {
                 console.error(err);
                 statusMsg.textContent = "Error: " + err.type;
@@ -439,10 +454,78 @@
                     setupConnection();
                 });
             }
+            else if (mode === 'matchmaking') {
+
+                titleEl.textContent = "Matchmaking";
+                document.getElementById('p1-name').textContent = "You";
+                p2Name.textContent = "Searching for opponent...";
+                startBtn.style.display = "none";
+                hostControls.style.display = "none";
+                document.getElementById('restart').style.display = 'none';
+
+                peer.on('open', (id) => {
+                    startMatchmaking(id);
+                });
+
+            }
+        }
+        async function startMatchmaking(peerId) {
+
+            statusMsg.textContent = "Searching for opponent...";
+
+            try {
+
+                const res = await fetch(MATCH_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ peerId })
+                });
+
+                const data = await res.json();
+
+                if (data.matchFound) {
+
+                    p2Dot.classList.add('active');
+                    p2Name.textContent = "Opponent";
+
+                    if (data.isHost) {
+
+                        myPlayer = "X";
+                        statusMsg.textContent = "Connecting to opponent...";
+
+                        conn = peer.connect(data.opponentPeerId);
+                        setupConnection();
+
+                    } else {
+
+                        myPlayer = "O";
+                        statusMsg.textContent = "Opponent connecting...";
+
+                    }
+
+                } else {
+
+                    setTimeout(() => startMatchmaking(peerId), 1500);
+
+                }
+
+            } catch (err) {
+
+                console.error(err);
+                statusMsg.textContent = "Matchmaking error. Retrying...";
+                setTimeout(() => startMatchmaking(peerId), 2000);
+
+            }
         }
 
         function setupConnection() {
             conn.on('open', () => {
+                if (mode === 'matchmaking') {
+                    startGame();
+                    return;
+                }
                 if (mode === 'join') {
                     statusMsg.textContent = "Connected! Waiting for host to start...";
                     statusMsg.style.color = "#22c55e";
