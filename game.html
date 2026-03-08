@@ -358,6 +358,13 @@
         let myPlayer = null;
         let peer = null;
         let conn = null;
+        const MATCH_POLL_INTERVAL_MS = 700;
+        const MATCH_RETRY_INTERVAL_MS = 2000;
+        const MATCH_CONNECTION_TIMEOUT_MS = 10000;
+        let matchmakingDone = false;
+        let matchmakingPeerId = null;
+        let matchmakingPollTimer = null;
+        let matchConnectionTimeoutId = null;
 
         // Lobby DOM
         const statusMsg = document.getElementById('status-msg');
@@ -366,6 +373,96 @@
         const startBtn = document.getElementById('start-btn');
         const titleEl = document.getElementById('lobby-title');
         const hostControls = document.getElementById('host-controls');
+
+        function clearMatchmakingPollTimer() {
+            if (matchmakingPollTimer !== null) {
+                clearTimeout(matchmakingPollTimer);
+                matchmakingPollTimer = null;
+            }
+        }
+
+        function clearMatchConnectionTimeout() {
+            if (matchConnectionTimeoutId !== null) {
+                clearTimeout(matchConnectionTimeoutId);
+                matchConnectionTimeoutId = null;
+            }
+        }
+
+        function scheduleMatchmakingPoll(peerId, delayMs = MATCH_POLL_INTERVAL_MS) {
+            clearMatchmakingPollTimer();
+            if (mode !== 'matchmaking' || matchmakingDone) return;
+            matchmakingPollTimer = setTimeout(() => {
+                if (!matchmakingDone) startMatchmaking(peerId);
+            }, delayMs);
+        }
+
+        function startMatchConnectionTimeout(peerId) {
+            clearMatchConnectionTimeout();
+            matchConnectionTimeoutId = setTimeout(() => {
+                if (mode !== 'matchmaking' || !matchmakingDone) return;
+                if (conn && conn.open) return;
+
+                matchmakingDone = false;
+                if (conn) {
+                    const pendingConn = conn;
+                    conn = null;
+                    pendingConn.close();
+                }
+
+                p2Dot.classList.remove('active');
+                p2Name.textContent = "Searching for opponent...";
+                p2Name.style.color = "#888";
+                statusMsg.textContent = "Connection timed out. Finding a new opponent...";
+                statusMsg.style.color = "#ff4d4d";
+                startMatchmaking(peerId);
+            }, MATCH_CONNECTION_TIMEOUT_MS);
+        }
+
+        function connectToPeer(targetPeerId) {
+            if (!peer || conn) return;
+            const outgoingConn = peer.connect(targetPeerId);
+            if (conn) {
+                outgoingConn.close();
+                return;
+            }
+            conn = outgoingConn;
+            setupConnection();
+        }
+
+        function handleIncomingConnection(c) {
+            if (conn) {
+                if (mode === 'host' && conn.peer !== c.peer) {
+                    setTimeout(() => {
+                        if (c.open) c.send({ type: 'error', msg: 'Room is full' });
+                        c.close();
+                    }, 500);
+                } else {
+                    c.close();
+                }
+                return;
+            }
+
+            conn = c;
+            setupConnection();
+
+            if (mode === 'host') {
+                statusMsg.textContent = "Player joined!";
+                statusMsg.style.color = "#22c55e";
+                p2Dot.classList.add('active');
+                p2Name.textContent = "Player 2 (O)";
+                p2Name.style.color = "#fff";
+                startBtn.disabled = false;
+                return;
+            }
+
+            if (mode === 'matchmaking') {
+                statusMsg.textContent = "Opponent connected. Starting game...";
+                statusMsg.style.color = "#22c55e";
+                p2Dot.classList.add('active');
+                p2Name.textContent = "Opponent";
+                p2Name.style.color = "#fff";
+            }
+        }
 
         if (mode === 'local') {
             lobbyScreen.style.display = 'none';
@@ -378,26 +475,13 @@
         } else {
             // Multiplayer logic
             peer = new Peer();
-            peer.on('connection', (c) => {
-
-                conn = c;
-                setupConnection();
-
-                statusMsg.textContent = "Opponent connected!";
-                statusMsg.style.color = "#22c55e";
-
-                p2Dot.classList.add('active');
-                p2Name.textContent = "Opponent";
-                p2Name.style.color = "#fff";
-
-                startGame();
-
-            });
+            peer.on('connection', handleIncomingConnection);
             peer.on('error', (err) => {
                 console.error(err);
                 statusMsg.textContent = "Error: " + err.type;
                 statusMsg.style.color = "#ff4d4d";
             });
+            peer.on('disconnected', handleDisconnect);
 
             if (mode === 'host') {
                 myPlayer = 'X';
@@ -414,22 +498,6 @@
 
                     const joinUrl = basePath.split('?')[0] + '?mode=join&room=' + id;
                     document.getElementById('invite-link').value = joinUrl;
-                });
-
-                peer.on('connection', (c) => {
-                    if (conn && conn.peer !== c.peer) {
-                        setTimeout(() => { c.send({ type: 'error', msg: 'Room is full' }); c.close(); }, 500);
-                        return;
-                    }
-                    conn = c;
-                    setupConnection();
-
-                    statusMsg.textContent = "Player joined!";
-                    statusMsg.style.color = "#22c55e";
-                    p2Dot.classList.add('active');
-                    p2Name.textContent = "Player 2 (O)";
-                    p2Name.style.color = "#fff";
-                    startBtn.disabled = false;
                 });
 
                 startBtn.onclick = () => {
@@ -450,8 +518,7 @@
 
                 peer.on('open', () => {
                     statusMsg.textContent = "Connecting to host...";
-                    conn = peer.connect(roomToJoin);
-                    setupConnection();
+                    connectToPeer(roomToJoin);
                 });
             }
             else if (mode === 'matchmaking') {
@@ -464,14 +531,19 @@
                 document.getElementById('restart').style.display = 'none';
 
                 peer.on('open', (id) => {
+                    matchmakingPeerId = id;
+                    matchmakingDone = false;
                     startMatchmaking(id);
                 });
 
             }
         }
         async function startMatchmaking(peerId) {
+            if (mode !== 'matchmaking' || matchmakingDone) return;
+            matchmakingPeerId = peerId;
 
             statusMsg.textContent = "Searching for opponent...";
+            statusMsg.style.color = "#fff";
 
             try {
 
@@ -484,19 +556,24 @@
                 });
 
                 const data = await res.json();
+                if (matchmakingDone) return;
 
                 if (data.matchFound) {
+                    matchmakingDone = true;
+                    clearMatchmakingPollTimer();
 
                     p2Dot.classList.add('active');
                     p2Name.textContent = "Opponent";
+                    p2Name.style.color = "#fff";
+
+                    startMatchConnectionTimeout(peerId);
 
                     if (data.isHost) {
 
                         myPlayer = "X";
                         statusMsg.textContent = "Connecting to opponent...";
 
-                        conn = peer.connect(data.opponentPeerId);
-                        setupConnection();
+                        connectToPeer(data.opponentPeerId);
 
                     } else {
 
@@ -507,7 +584,7 @@
 
                 } else {
 
-                    setTimeout(() => startMatchmaking(peerId), 1500);
+                    scheduleMatchmakingPoll(peerId);
 
                 }
 
@@ -515,14 +592,19 @@
 
                 console.error(err);
                 statusMsg.textContent = "Matchmaking error. Retrying...";
-                setTimeout(() => startMatchmaking(peerId), 2000);
+                statusMsg.style.color = "#ff4d4d";
+                scheduleMatchmakingPoll(peerId, MATCH_RETRY_INTERVAL_MS);
 
             }
         }
 
         function setupConnection() {
+            if (!conn) return;
             conn.on('open', () => {
                 if (mode === 'matchmaking') {
+                    clearMatchConnectionTimeout();
+                    clearMatchmakingPollTimer();
+                    matchmakingDone = true;
                     startGame();
                     return;
                 }
@@ -551,7 +633,6 @@
             });
 
             conn.on('close', handleDisconnect);
-            peer.on('disconnected', handleDisconnect);
         }
 
         function handleDisconnect() {
@@ -565,6 +646,19 @@
                     p2Name.style.color = "#888";
                     startBtn.disabled = true;
                     conn = null;
+                } else if (mode === 'matchmaking') {
+                    conn = null;
+                    clearMatchConnectionTimeout();
+                    if (!matchmakingDone) return;
+                    matchmakingDone = false;
+                    p2Dot.classList.remove('active');
+                    p2Name.textContent = "Searching for opponent...";
+                    p2Name.style.color = "#888";
+                    statusMsg.textContent = "Opponent disconnected. Finding new match...";
+                    statusMsg.style.color = "#ff4d4d";
+                    if (matchmakingPeerId) {
+                        startMatchmaking(matchmakingPeerId);
+                    }
                 } else {
                     statusMsg.textContent = "Host left the lobby. Room destroyed.";
                     statusMsg.style.color = "#ff4d4d";
@@ -592,18 +686,26 @@
         }
 
         function leaveLobby() {
+            matchmakingDone = true;
+            clearMatchmakingPollTimer();
+            clearMatchConnectionTimeout();
             if (conn) conn.close();
             if (peer) peer.destroy();
             window.location.href = 'index.html';
         }
 
         function leaveGame() {
+            matchmakingDone = true;
+            clearMatchmakingPollTimer();
+            clearMatchConnectionTimeout();
             if (conn) conn.close();
             if (peer) peer.destroy();
             window.location.href = 'index.html';
         }
 
         function startGame() {
+            clearMatchmakingPollTimer();
+            clearMatchConnectionTimeout();
             const body = document.querySelector('body');
             body.style.setProperty('--before-display', 'none')
             lobbyScreen.style.display = 'none';
